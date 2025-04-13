@@ -8,15 +8,70 @@
 #include "imuManager.h"
 #include "helpers/sonarDataStore.h"
 #include "helpers/sonarImage.h"
+#include <string>
+#include <vector>
+#include <mutex>
+#include <windows.h> // 添加 Windows API 头文件
+#include <opencv2/opencv.hpp>
+
 
 //--------------------------------------- Class Definition -----------------------------------------
 
 namespace IslSdk
 {
+    struct Message {
+        char header[7];
+        uint16_t length;
+        uint16_t year;
+        uint8_t month;
+        uint8_t day;
+        uint8_t hour;
+        uint8_t minute;
+        uint8_t second;
+        uint8_t status;
+        uint16_t angle;
+        uint8_t speed;
+        uint8_t minrange;
+        uint8_t maxrange;
+        uint16_t reserved;
+        uint16_t checksum;
+        uint8_t end1;
+        uint8_t end2;
+    };
+    std::string messageToString(const Message& msg);
     class SonarApp : public App
     {
     public:
         SonarApp(void);
+        std::string header;
+        uint16_t length;
+        uint16_t year;
+        uint8_t month;
+        uint8_t day;
+        uint8_t hour;
+        uint8_t minute;
+        uint8_t second;
+        uint8_t status;
+        uint16_t angle;
+        uint8_t speed;
+        uint32_t reserved;
+        uint16_t checksum;
+        uint8_t end1;
+        uint8_t end2;
+        void processReceivedData(const std::vector<uint8_t>& data);
+        void SonarApp::readUartData(const std::string& portName, uint32_t baudrate);
+        void initializeTime();
+        uint16_t addcalculateChecksum(const uint8_t* data, size_t size);
+        void SonarApp::sendFormattedData
+        (
+            const std::string& portName,
+            uint32_t baudrate,
+            uint16_t year, uint8_t month, uint8_t day,
+            uint8_t hour, uint8_t minute, uint8_t second,
+            uint8_t status, uint16_t angle, uint8_t speed,
+            uint8_t minrange,
+            uint8_t maxrange
+        );
         ~SonarApp(void);
         void renderPalette(const std::string& path);
         void connectSignals(Device& device) override;
@@ -30,8 +85,24 @@ namespace IslSdk
         Slot<Sonar&, const Sonar::CpuPowerTemp& > slotPwrAndTemp{ this, &SonarApp::callbackPwrAndTemp };
         Slot<Sonar&> slotMotorSlip { this, &SonarApp::callbackMotorSlip };
         Slot<Sonar&, bool_t> slotMotorMoveComplete { this, &SonarApp::callbackMotorMoveComplete };
+        void sendUartData(const std::string& portName, uint32_t baudrate, const std::vector<uint8_t>& data);
+        void saveShanxingToFile(const float* shanxing, int rows, int cols, const std::string& filename);
         
     private:
+        //新添加
+        std::string dataFolder_;
+        std::string allPingDataFilename_;
+        bool m_scanning;
+        std::ofstream m_outputFile;
+        int sequenceNumber_; // 序号变量
+        int currentCol = 0;// 当前存储的列
+        void setDataFolder(const std::string& basePath);
+        void updatePingDataFilename();
+        void writeInitialLog();
+        void SonarApp::recordPingData(const Sonar& iss360, const Sonar::Ping& ping, uint_t txPulseLengthMm);
+
+
+
         AhrsManager ahrs;
         GyroManager gyro;
         AccelManager accel;
@@ -50,6 +121,20 @@ namespace IslSdk
         void callbackPwrAndTemp(Sonar& sonar, const Sonar::CpuPowerTemp& data);
         void callbackMotorSlip(Sonar& sonar);
         void callbackMotorMoveComplete(Sonar& sonar, bool_t ok);
+    };
+    class SeriallPort {
+    private:
+        HANDLE hComm;  // 串口句柄
+        DCB dcbSerialParams;  // 串口参数
+        COMMTIMEOUTS timeouts;  // 超时参数
+
+    public:
+        SeriallPort();
+        ~SeriallPort();
+        bool open(const std::string& portName, int baudRate);
+        bool close();
+        bool read(char* buffer, int bufferSize, int& bytesRead);
+        bool write(const char* buffer, int bufferSize, int& bytesWritten);
     };
 }
 
