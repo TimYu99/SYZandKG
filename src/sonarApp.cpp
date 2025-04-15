@@ -475,7 +475,7 @@ void SonarApp::callbackMotorMoveComplete(Sonar& sonar, bool_t ok)
 }
 //----------------------------------------------------------------------------------------------
 //--------------------------------------------------------------------------------------------------
-void SonarApp::callbackPingData(Sonar& sonar, const Sonar::Ping& ping)
+void SonarApp::callbackPingData(Sonar& iss360, const Sonar::Ping& ping)
 {
     //Debug::log(Debug::Severity::Info, name.c_str(), "Ping data");
     if (isRecording)
@@ -483,14 +483,14 @@ void SonarApp::callbackPingData(Sonar& sonar, const Sonar::Ping& ping)
         static int pingDataCount = 0; // 静态变量用于保持计数器的值
         //Debug::log(Debug::Severity::Info, name.c_str(), "Ping data");
         Debug::log(Debug::Severity::Info, name.c_str(), "Ping data, Count: %d", ++pingDataCount); // 显示计数器的值
-    uint_t txPulseLengthMm = static_cast<uint_t>(sonar.settings.system.speedOfSound * sonar.settings.acoustic.txPulseWidthUs * 0.001 * 0.5);
+    uint_t txPulseLengthMm = static_cast<uint_t>(iss360.settings.system.speedOfSound * iss360.settings.acoustic.txPulseWidthUs * 0.001 * 0.5);
     txPulseLengthMm = Math::max<uint_t>(txPulseLengthMm, 150);
 
     sonarDataStore.add(ping, txPulseLengthMm);
-
+    recordPingData(iss360, ping, txPulseLengthMm);
     m_pingCount++;
 
-    if (m_pingCount % (Sonar::maxAngle / sonar.settings.setup.stepSize) == 0)
+    if (m_pingCount % (Sonar::maxAngle / iss360.settings.setup.stepSize) == 0)
     {
         m_pingCount = 0;
         /*
